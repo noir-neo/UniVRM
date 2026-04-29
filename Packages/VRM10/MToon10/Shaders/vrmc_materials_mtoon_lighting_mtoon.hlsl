@@ -7,6 +7,16 @@
 #include "./vrmc_materials_mtoon_input.hlsl"
 #include "./vrmc_materials_mtoon_lighting_unity.hlsl"
 
+// URP は INV_PI を Macros.hlsl で定義しているが、Built-in RP は UNITY_INV_PI のみ。
+// 両 RP で同じ識別子を使えるよう alias する。
+#ifndef MTOON_INV_PI
+    #ifdef MTOON_URP
+        #define MTOON_INV_PI INV_PI
+    #else
+        #define MTOON_INV_PI UNITY_INV_PI
+    #endif
+#endif
+
 struct MToonInput
 {
     float2 uv;
@@ -85,7 +95,10 @@ inline half3 GetMToonLighting_GlobalIllumination(const UnityLighting unityLight,
 {
     if (MToon_IsForwardBasePass())
     {
-        return input.litColor * lerp(unityLight.indirectLight, unityLight.indirectLightEqualized, _GiEqualization);
+        // PBR (URP Lit) は EnvironmentBRDF 内で diffuse 反射率に 1/π 等価の減衰が掛かるが、
+        // MToon はそれを持たないので素の SH がフルで乗って overshoot する。1/π を明示的に掛けて
+        // URP Lit と整合させる。
+        return input.litColor * lerp(unityLight.indirectLight, unityLight.indirectLightEqualized, _GiEqualization) * MTOON_INV_PI;
     }
     else
     {
