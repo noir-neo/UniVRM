@@ -373,15 +373,25 @@ namespace UniGLTF.SpringBoneJobs
                 if (_batchedBuffers[i] == buffer)
                 {
                     Debug.Assert(length == buffer.Logics.Length);
-                    for (var j = 0; j < length; ++j)
+                    foreach (var spring in buffer.Springs)
                     {
-                        var logic = buffer.Logics[j];
-                        if (logic.tailTransformIndex != -1)
+                        // tail 位置は center がある場合 center ローカル座標で保持される (InitCurrentTailsJob と同じ)
+                        var center = spring.centerTransformIndex >= 0
+                            ? buffer.Transforms[spring.centerTransformIndex]
+                            : null;
+                        for (var j = spring.logicSpan.startIndex; j < spring.logicSpan.EndIndex; ++j)
                         {
-                            var tailPosition = buffer.Transforms[logic.tailTransformIndex].position;
-                            var dst = logicsIndex + j;
-                            // tail 位置を初期化し速度を0にする
-                            _currentTails[dst] = _prevTails[dst] = _nextTails[dst] = tailPosition;
+                            var logic = buffer.Logics[j];
+                            if (logic.tailTransformIndex >= 0)
+                            {
+                                var tail = buffer.Transforms[logic.tailTransformIndex];
+                                var tailPosition = center != null
+                                    ? center.worldToLocalMatrix.MultiplyPoint3x4(tail.position)
+                                    : tail.position;
+                                var dst = logicsIndex + j;
+                                // tail 位置を初期化し速度を0にする
+                                _currentTails[dst] = _prevTails[dst] = _nextTails[dst] = tailPosition;
+                            }
                         }
                     }
                     break;
